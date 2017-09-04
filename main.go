@@ -57,6 +57,8 @@ func serveClient() {
 	baseName := filepath.Base(fileName)
 	bw := bufio.NewWriter(conn)
 	bw.WriteString(fmt.Sprintf("name:%s\n", baseName))
+	bw.Flush()
+	log.Printf("transfer name:%s", baseName)
 	io.Copy(bw, file)
 }
 
