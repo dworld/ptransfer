@@ -12,16 +12,16 @@ import (
 )
 
 var (
-	mode      string
-	proxyAddr string
-	destAddr  string
-	fileName  string
+	mode       string
+	proxyAddr  string
+	serverAddr string
+	fileName   string
 )
 
 func init() {
 	flag.StringVar(&mode, "mode", "client", "mode: client, server")
 	flag.StringVar(&proxyAddr, "proxy_addr", "", "proxy addr")
-	flag.StringVar(&destAddr, "dest_addr", "0.0.0.0:39002", "dest addr")
+	flag.StringVar(&serverAddr, "server_addr", "0.0.0.0:39002", "server addr")
 	flag.StringVar(&fileName, "file", "", "file to transfer")
 }
 
@@ -40,19 +40,19 @@ func main() {
 func serveClient() {
 	file, err := os.Open(fileName)
 	if err != nil {
-		fmt.Printf("open fille '%s' error, %s", fileName, err)
+		fmt.Printf("open file '%s' error, %s\n", fileName, err)
 		os.Exit(1)
 	}
 	defer file.Close()
 
-	dest := destAddr
+	dest := serverAddr
 	if proxyAddr != "" {
 		dest = proxyAddr
 	}
 
 	conn, err := net.Dial("tcp", dest)
 	if err != nil {
-		fmt.Printf("dial to '%s' error, %s", dest, err)
+		fmt.Printf("dial to '%s' error, %s\n", dest, err)
 		os.Exit(1)
 	}
 	defer conn.Close()
@@ -60,7 +60,7 @@ func serveClient() {
 	baseName := filepath.Base(fileName)
 	bw := bufio.NewWriter(conn)
 	bw.WriteString(fmt.Sprintf("name:%s\n", baseName))
-	proxyTo := destAddr
+	proxyTo := serverAddr
 	if proxyAddr == "" {
 		proxyTo = "no"
 	}
@@ -71,11 +71,11 @@ func serveClient() {
 }
 
 func serveServer() {
-	log.Printf("serve ftransfer-dest at %s", destAddr)
-	defer log.Printf("exit ftransfer-dest")
-	ln, err := net.Listen("tcp", destAddr)
+	log.Printf("serve ftransfer-server at %s", serverAddr)
+	defer log.Printf("exit ftransfer-server")
+	ln, err := net.Listen("tcp", serverAddr)
 	if err != nil {
-		log.Printf("listen '%s' error, %s", destAddr, err)
+		log.Printf("listen '%s' error, %s", serverAddr, err)
 		os.Exit(1)
 	}
 	defer ln.Close()
@@ -86,11 +86,11 @@ func serveServer() {
 			log.Printf("accept error, %s", err)
 			continue
 		}
-		handleDestConn(conn)
+		handleServerConn(conn)
 	}
 }
 
-func handleDestConn(conn net.Conn) {
+func handleServerConn(conn net.Conn) {
 	defer conn.Close()
 	br := bufio.NewReader(conn)
 
@@ -108,7 +108,7 @@ func handleDestConn(conn net.Conn) {
 	var name, proxyTo string
 	fmt.Sscanf(string(nameLine), "name:%s", &name)
 	fmt.Sscanf(string(proxyToLine), "proxyTo:%s", &proxyTo)
-	log.Printf("accept file: %s, proxy: %s", name, proxyTo)
+	log.Printf("accept file: %s, proxy to: %s", name, proxyTo)
 
 	if proxyTo == "no" {
 		path := "upload/" + name
@@ -120,14 +120,14 @@ func handleDestConn(conn net.Conn) {
 		defer f.Close()
 		io.Copy(f, br)
 	} else {
-		conn, err := net.Dial("tcp", proxyTo)
+		pconn, err := net.Dial("tcp", proxyTo)
 		if err != nil {
 			log.Printf("dial to '%s' err, %s", proxyTo, err)
 			return
 		}
-		defer conn.Close()
+		defer pconn.Close()
 
-		bw := bufio.NewWriter(conn)
+		bw := bufio.NewWriter(pconn)
 		bw.WriteString(fmt.Sprintf("name:%s\n", name))
 		bw.WriteString(fmt.Sprintf("proxyTo:no\n"))
 		bw.Flush()
