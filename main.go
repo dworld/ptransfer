@@ -21,7 +21,7 @@ var (
 func init() {
 	flag.StringVar(&mode, "mode", "client", "mode: client, server")
 	flag.StringVar(&proxyAddr, "proxy_addr", "", "proxy addr")
-	flag.StringVar(&serverAddr, "server_addr", "0.0.0.0:39002", "server addr")
+	flag.StringVar(&serverAddr, "server_addr", "127.0.0.1:39002", "server addr")
 	flag.StringVar(&fileName, "file", "", "file to transfer")
 }
 
